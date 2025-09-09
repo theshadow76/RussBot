@@ -35,8 +35,12 @@ class TechnicalIndicators:
         
         # Calculate EMA for remaining values
         for i in range(period, len(data)):
-            ema = (data[i] * multiplier) + (ema_values[-1] * (1 - multiplier))
-            ema_values.append(ema)
+            try:
+                ema = (data[i] * multiplier) + (ema_values[-1] * (1 - multiplier))
+                ema_values.append(ema)
+            except (TypeError, ValueError) as e:
+                print(f"⚠️ EMA calculation error at index {i}: {e}")
+                ema_values.append(np.nan)
         
         return ema_values
     
@@ -94,8 +98,25 @@ class TechnicalIndicators:
             else:
                 macd_line.append(ema_fast[i] - ema_slow[i])
         
-        # Calculate Signal line (EMA of MACD)
-        signal_line = TechnicalIndicators.ema(macd_line, signal)
+        # Filter out NaN values for signal line calculation
+        valid_macd_values = []
+        valid_indices = []
+        for i, val in enumerate(macd_line):
+            if not pd.isna(val):
+                valid_macd_values.append(val)
+                valid_indices.append(i)
+        
+        # Calculate Signal line (EMA of MACD) only on valid values
+        if len(valid_macd_values) >= signal:
+            signal_ema = TechnicalIndicators.ema(valid_macd_values, signal)
+            
+            # Map back to full array
+            signal_line = [np.nan] * len(data)
+            for i, idx in enumerate(valid_indices):
+                if i < len(signal_ema) and not pd.isna(signal_ema[i]):
+                    signal_line[idx] = signal_ema[i]
+        else:
+            signal_line = [np.nan] * len(data)
         
         # Calculate Histogram
         histogram = []
@@ -145,34 +166,159 @@ class TradingBot:
         # Get initial balance
         balance = await self.api.balance()
         print(f"Current balance: {balance}")
+        
+        # Load historical data for indicators
+        await self.load_historical_data()
+    
+    async def load_historical_data(self):
+        """Load historical candle data for indicators initialization"""
+        print(f"📈 Loading historical data for {self.asset}...")
+        
+        try:
+            # Get historical candles using the history method
+            # Get last 3600 seconds (1 hour) of data which should give us enough candles
+            history_candles = await self.api.history(self.asset, 3600)
+            
+            if not history_candles:
+                print("⚠️ No historical data received, starting with live data only")
+                return
+            
+            print(f"📊 Received {len(history_candles)} historical candles")
+            
+            # Debug: Show first candle structure
+            if history_candles:
+                print(f"🔍 Sample candle structure: {history_candles[0]}")
+            
+            # Convert historical data to our format and add to storage
+            valid_candles = 0
+            for i, candle in enumerate(history_candles):
+                # Convert candle format if needed
+                formatted_candle = self.format_candle_data(candle)
+                
+                if formatted_candle:
+                    # Add to our data storage (without printing each one)
+                    self.add_candle_data_silent(formatted_candle)
+                    valid_candles += 1
+                
+                # Show progress every 20 candles
+                if (i + 1) % 20 == 0:
+                    print(f"  Processed {i + 1}/{len(history_candles)} candles...")
+            
+            print(f"✅ Loaded {valid_candles} valid candles into memory")
+            
+            # Debug: Show some sample data
+            if len(self.close_prices) >= 5:
+                print(f"🔍 Sample close prices: {list(self.close_prices)[-5:]}")
+                print(f"🔍 Sample high prices: {list(self.high_prices)[-5:]}")
+                print(f"🔍 Sample low prices: {list(self.low_prices)[-5:]}")
+            
+            # Calculate initial indicators to verify data
+            indicators = self.calculate_indicators()
+            if indicators:
+                print(f"🔧 Initial indicators calculated:")
+                print(f"   EMA(10): {indicators['ema']:.5f}")
+                print(f"   CCI(7): {indicators['cci']:.2f}")
+                print(f"   MACD: {indicators['macd']:.5f}")
+                print("🟢 Ready for live trading!")
+            else:
+                print("⚠️ Could not calculate indicators yet, need more data")
+                
+        except Exception as e:
+            print(f"❌ Error loading historical data: {e}")
+            print("⚠️ Starting without historical data - will wait for live candles")
+    
+    def format_candle_data(self, candle: Dict) -> Optional[Dict]:
+        """Format and validate candle data from API"""
+        try:
+            # Extract basic values
+            raw_open = candle.get('open', 0)
+            raw_high = candle.get('high', 0) 
+            raw_low = candle.get('low', 0)
+            raw_close = candle.get('close', 0)
+            raw_time = candle.get('time', 0)
+            
+            # Convert to floats
+            open_price = float(raw_open)
+            high = float(raw_high)
+            low = float(raw_low)
+            close = float(raw_close)
+            
+            # Validate basic data
+            if any(price <= 0 for price in [open_price, high, low, close]):
+                return None
+            
+            # Create list of all prices to find actual high/low
+            all_prices = [open_price, close, high, low]
+            actual_high = max(all_prices)
+            actual_low = min(all_prices)
+            
+            # Use actual high/low instead of potentially mislabeled ones
+            formatted_candle = {
+                'open': open_price,
+                'high': actual_high,
+                'low': actual_low,
+                'close': close,
+                'time': raw_time
+            }
+            
+            return formatted_candle
+            
+        except (ValueError, TypeError, KeyError) as e:
+            print(f"⚠️ Error formatting candle: {e}")
+            return None
+    
+    def add_candle_data_silent(self, candle: Dict):
+        """Add new candle data to history without printing (for historical data)"""
+        # Extract OHLC data (should already be validated by format_candle_data)
+        try:
+            high = float(candle.get('high', 0))
+            low = float(candle.get('low', 0))
+            close = float(candle.get('close', 0))
+            open_price = float(candle.get('open', 0))
+            timestamp = candle.get('time', 0)
+            
+            # Store data
+            self.high_prices.append(high)
+            self.low_prices.append(low)
+            self.close_prices.append(close)
+            self.open_prices.append(open_price)
+            self.timestamps.append(timestamp)
+            self.candles_history.append(candle)
+            
+        except (ValueError, TypeError) as e:
+            print(f"⚠️ Error processing candle data: {e}")
     
     def add_candle_data(self, candle: Dict):
         """Add new candle data to history"""
-        # Extract OHLC data
-        high = float(candle.get('high', candle.get('close', 0)))
-        low = float(candle.get('low', candle.get('close', 0)))
-        close = float(candle.get('close', 0))
-        open_price = float(candle.get('open', close))
-        timestamp = candle.get('time', 0)
+        # Format and validate the candle first
+        formatted_candle = self.format_candle_data(candle)
         
-        # Store data
-        self.high_prices.append(high)
-        self.low_prices.append(low)
-        self.close_prices.append(close)
-        self.open_prices.append(open_price)
-        self.timestamps.append(timestamp)
-        self.candles_history.append(candle)
+        if not formatted_candle:
+            print(f"⚠️ Skipping invalid candle: {candle}")
+            return
         
+        # Use silent method and then print
+        self.add_candle_data_silent(formatted_candle)
+        
+        # Print the new candle info
+        open_price = formatted_candle['open']
+        high = formatted_candle['high']
+        low = formatted_candle['low']
+        close = formatted_candle['close']
         print(f"Added candle: O:{open_price:.5f} H:{high:.5f} L:{low:.5f} C:{close:.5f}")
     
     def calculate_indicators(self) -> Optional[Dict]:
         """Calculate all technical indicators"""
         if len(self.close_prices) < 26:  # Need at least 26 candles for MACD
+            print(f"📊 Need more data: {len(self.close_prices)}/26 candles available")
             return None
         
         close_list = list(self.close_prices)
         high_list = list(self.high_prices)
         low_list = list(self.low_prices)
+        
+        print(f"🔍 Debug: Calculating indicators with {len(close_list)} candles")
+        print(f"    Last 3 close prices: {close_list[-3:]}")
         
         # Calculate indicators
         ema_10 = TechnicalIndicators.ema(close_list, 10)
@@ -180,12 +326,28 @@ class TradingBot:
         macd_line, signal_line, histogram = TechnicalIndicators.macd(close_list, 12, 26, 9)
         
         # Get current values (last in the list)
-        current_ema = ema_10[-1] if not pd.isna(ema_10[-1]) else None
-        current_cci = cci_7[-1] if not pd.isna(cci_7[-1]) else None
-        current_macd = macd_line[-1] if not pd.isna(macd_line[-1]) else None
-        current_signal = signal_line[-1] if not pd.isna(signal_line[-1]) else None
+        current_ema = ema_10[-1] if len(ema_10) > 0 and not pd.isna(ema_10[-1]) else None
+        current_cci = cci_7[-1] if len(cci_7) > 0 and not pd.isna(cci_7[-1]) else None
+        current_macd = macd_line[-1] if len(macd_line) > 0 and not pd.isna(macd_line[-1]) else None
+        current_signal = signal_line[-1] if len(signal_line) > 0 and not pd.isna(signal_line[-1]) else None
+        
+        print(f"🔍 Debug indicator values:")
+        print(f"    EMA(10): {current_ema}")
+        print(f"    CCI(7): {current_cci}")
+        print(f"    MACD: {current_macd}")
+        print(f"    Signal: {current_signal}")
         
         if any(val is None for val in [current_ema, current_cci, current_macd, current_signal]):
+            print("⚠️ Some indicator values are invalid")
+            # Let's see which ones are None
+            if current_ema is None:
+                print("  - EMA is None")
+            if current_cci is None:
+                print("  - CCI is None")
+            if current_macd is None:
+                print("  - MACD is None")
+            if current_signal is None:
+                print("  - Signal is None")
             return None
         
         return {
@@ -383,7 +545,7 @@ class TradingBot:
 
 async def main():
     """Main function to run the trading bot"""
-    
+
     # Get user input
     ssid = input('Please enter your SSID: ')
     asset = input('Enter asset (default: EURUSD_otc): ').strip() or "EURUSD_otc"
@@ -400,6 +562,13 @@ async def main():
     # Create and run bot
     bot = TradingBot(ssid, asset, amount)
     await bot.initialize()
+    
+    # Check if we have enough data before starting
+    if len(bot.close_prices) >= 26:
+        print("🟢 Historical data loaded - Bot ready for trading!")
+    else:
+        print("🟡 Starting with live data only - will wait for enough candles")
+    
     await bot.run()
 
 

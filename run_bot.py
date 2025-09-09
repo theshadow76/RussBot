@@ -57,10 +57,12 @@ def main():
     print("\nAvailable options:")
     print("1. Run Trading Bot (trading_bot.py)")
     print("2. Test Indicators (test_indicators.py)")
-    print("3. View Configuration (config.py)")
-    print("4. Exit")
+    print("3. Test Historical Data (test_history.py)")
+    print("4. Simple History Test (test_simple_history.py)")
+    print("5. View Configuration (config.py)")
+    print("6. Exit")
     
-    choice = input("\nSelect option (1-4): ").strip()
+    choice = input("\nSelect option (1-6): ").strip()
     
     if choice == "1":
         print("\n🚀 Starting Trading Bot...")
@@ -80,6 +82,22 @@ def main():
             print(f"❌ Error running tests: {e}")
     
     elif choice == "3":
+        print("\n📈 Starting Historical Data Test...")
+        try:
+            import test_history
+            asyncio.run(test_history.main())
+        except Exception as e:
+            print(f"❌ Error running historical data test: {e}")
+    
+    elif choice == "4":
+        print("\n🧪 Starting Simple History Test...")
+        try:
+            import test_simple_history
+            asyncio.run(test_simple_history.main())
+        except Exception as e:
+            print(f"❌ Error running simple history test: {e}")
+    
+    elif choice == "5":
         print("\n⚙️ Configuration:")
         try:
             import config
@@ -97,7 +115,7 @@ def main():
         except Exception as e:
             print(f"❌ Error loading config: {e}")
     
-    elif choice == "4":
+    elif choice == "6":
         print("👋 Goodbye!")
         return
     

@@ -34,8 +34,10 @@ A sophisticated trading bot implementing a strategy based on EMA, CCI, and MACD 
 ```
 RussBot/
 ├── trading_bot.py      # Main trading bot with full strategy
-├── test_indicators.py  # Test script for indicators
-├── config.py          # Configuration settings
+├── test_indicators.py      # Test script for indicators
+├── test_history.py         # Test script for historical data loading
+├── test_simple_history.py  # Simple history function test
+├── config.py              # Configuration settings
 ├── run_bot.py         # Simple launcher script
 ├── context.txt        # API usage examples
 └── README.md          # This file
@@ -96,19 +98,30 @@ TRADING_CONFIG = {
    - Log into your PocketOption account
    - Extract the SSID from browser cookies/network tab
 
-3. **Test indicators first:**
+3. **Test historical data loading:**
+   ```bash
+   python test_history.py
+   ```
+
+4. **Test indicators first:**
    ```bash
    python test_indicators.py
    ```
 
-4. **Run the bot:**
+5. **Run the bot:**
    ```bash
    python trading_bot.py
    ```
 
-5. **Enter your SSID when prompted**
+6. **Enter your SSID when prompted**
 
 ## Features
+
+### Historical Data Loading
+- **Pre-loads historical candles** using `api.history()` before starting live trading
+- **Immediate indicator calculation** - no waiting for 26+ live candles
+- **Fallback support** - continues with live data if historical loading fails
+- **Configurable history periods** for different data amounts
 
 ### Technical Indicators
 - **EMA (Exponential Moving Average):** Trend direction

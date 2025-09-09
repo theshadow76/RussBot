@@ -194,7 +194,7 @@ class TradingBot:
             for i, candle in enumerate(history_candles):
                 # Convert candle format if needed
                 formatted_candle = self.format_candle_data(candle)
-                
+                 
                 if formatted_candle:
                     # Add to our data storage (without printing each one)
                     self.add_candle_data_silent(formatted_candle)

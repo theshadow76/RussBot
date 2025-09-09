@@ -56,13 +56,15 @@ def main():
     
     print("\nAvailable options:")
     print("1. Run Trading Bot (trading_bot.py)")
-    print("2. Test Indicators (test_indicators.py)")
-    print("3. Test Historical Data (test_history.py)")
-    print("4. Simple History Test (test_simple_history.py)")
-    print("5. View Configuration (config.py)")
-    print("6. Exit")
+    print("2. Multi-Asset Bot (multi_asset_bot.py)")
+    print("3. Check Asset Payouts (payout_checker.py)")
+    print("4. Test Indicators (test_indicators.py)")
+    print("5. Test Historical Data (test_history.py)")
+    print("6. Simple History Test (test_simple_history.py)")
+    print("7. View Configuration (config.py)")
+    print("8. Exit")
     
-    choice = input("\nSelect option (1-6): ").strip()
+    choice = input("\nSelect option (1-8): ").strip()
     
     if choice == "1":
         print("\n🚀 Starting Trading Bot...")
@@ -74,6 +76,22 @@ def main():
             print(f"❌ Error running trading bot: {e}")
     
     elif choice == "2":
+        print("\n🔄 Starting Multi-Asset Bot...")
+        try:
+            import multi_asset_bot
+            asyncio.run(multi_asset_bot.main())
+        except Exception as e:
+            print(f"❌ Error running multi-asset bot: {e}")
+    
+    elif choice == "3":
+        print("\n💰 Starting Payout Checker...")
+        try:
+            import payout_checker
+            asyncio.run(payout_checker.main())
+        except Exception as e:
+            print(f"❌ Error running payout checker: {e}")
+    
+    elif choice == "4":
         print("\n🧪 Starting Indicator Tests...")
         try:
             import test_indicators
@@ -81,7 +99,7 @@ def main():
         except Exception as e:
             print(f"❌ Error running tests: {e}")
     
-    elif choice == "3":
+    elif choice == "5":
         print("\n📈 Starting Historical Data Test...")
         try:
             import test_history
@@ -89,7 +107,7 @@ def main():
         except Exception as e:
             print(f"❌ Error running historical data test: {e}")
     
-    elif choice == "4":
+    elif choice == "6":
         print("\n🧪 Starting Simple History Test...")
         try:
             import test_simple_history
@@ -97,7 +115,7 @@ def main():
         except Exception as e:
             print(f"❌ Error running simple history test: {e}")
     
-    elif choice == "5":
+    elif choice == "7":
         print("\n⚙️ Configuration:")
         try:
             import config
@@ -115,7 +133,7 @@ def main():
         except Exception as e:
             print(f"❌ Error loading config: {e}")
     
-    elif choice == "6":
+    elif choice == "8":
         print("👋 Goodbye!")
         return
     

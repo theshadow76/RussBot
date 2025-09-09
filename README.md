@@ -33,14 +33,17 @@ A sophisticated trading bot implementing a strategy based on EMA, CCI, and MACD 
 
 ```
 RussBot/
-├── trading_bot.py      # Main trading bot with full strategy
+├── trading_bot.py          # Main single-asset trading bot
+├── multi_asset_bot.py      # Multi-asset trading bot with multiprocessing
+├── payout_checker.py       # Asset payout verification tool
 ├── test_indicators.py      # Test script for indicators
 ├── test_history.py         # Test script for historical data loading
 ├── test_simple_history.py  # Simple history function test
 ├── config.py              # Configuration settings
-├── run_bot.py         # Simple launcher script
-├── context.txt        # API usage examples
-└── README.md          # This file
+├── run_bot.py             # Simple launcher script
+├── assets-otc.tested.txt  # List of available assets
+├── context.txt            # API usage examples
+└── README.md              # This file
 ```
 
 ## Installation & Requirements
@@ -61,12 +64,22 @@ pip install pandas numpy BinaryOptionsToolsV2
 python trading_bot.py
 ```
 
-### Option 2: Using Launcher
+### Option 2: Multi-Asset Trading
+```bash
+python multi_asset_bot.py
+```
+
+### Option 3: Check Asset Payouts First
+```bash
+python payout_checker.py
+```
+
+### Option 4: Using Launcher
 ```bash
 python run_bot.py
 ```
 
-### Option 3: Test Indicators First
+### Option 5: Test Indicators First
 ```bash
 python test_indicators.py
 ```
@@ -117,6 +130,13 @@ TRADING_CONFIG = {
 
 ## Features
 
+### Multi-Asset Trading
+- **Concurrent processing** of multiple assets using multiprocessing
+- **Payout filtering** - only trades assets with >90% payout
+- **1-second candle intervals** for faster signal detection
+- **Automatic asset loading** from `assets-otc.tested.txt`
+- **Process management** with configurable concurrent limits
+
 ### Historical Data Loading
 - **Pre-loads historical candles** using `api.history()` before starting live trading
 - **Immediate indicator calculation** - no waiting for 26+ live candles
@@ -139,6 +159,33 @@ TRADING_CONFIG = {
 - Input validation and error handling
 - Position size management
 - Real-time balance monitoring
+
+## Multi-Asset Trading Workflow
+
+### 1. Check Asset Payouts
+```bash
+python payout_checker.py
+```
+- Loads all assets from `assets-otc.tested.txt`
+- Checks payout percentages for each asset
+- Filters assets with >90% payout
+- Saves valid assets to `valid_assets.txt`
+
+### 2. Run Multi-Asset Bot
+```bash
+python multi_asset_bot.py
+```
+- Prompts for SSID and trade amount
+- Creates separate processes for each valid asset
+- Each process runs the full trading strategy
+- 1-second candle intervals for faster signals
+- Concurrent trading across multiple assets
+
+### 3. Process Management
+- **Configurable concurrent limit** (default: 10 processes)
+- **Graceful shutdown** with Ctrl+C
+- **Individual process monitoring** with [P{id}] tags
+- **Error isolation** - one asset failure doesn't affect others
 
 ## Strategy Explanation
 

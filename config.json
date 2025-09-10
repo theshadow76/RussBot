@@ -1,0 +1,33 @@
+{
+  "trading": {
+    "default_asset": "EURUSD_otc",
+    "default_amount": 1.0,
+    "expiry_time": 15,
+    "candle_interval": 1,
+    "min_payout_percentage": 90.0,
+    "max_concurrent_processes": 10,
+    "min_trade_interval": 16
+  },
+  "indicators": {
+    "ema_period": 10,
+    "cci_period": 7,
+    "cci_buy_threshold": 100,
+    "cci_sell_threshold": -100,
+    "cci_tolerance": 10,
+    "macd_fast": 12,
+    "macd_slow": 26,
+    "macd_signal": 9
+  },
+  "system": {
+    "max_history": 100,
+    "log_level": "INFO",
+    "log_to_file": true,
+    "log_to_terminal": true,
+    "assets_file": "assets-otc.tested.txt"
+  },
+  "user": {
+    "ssid": "",
+    "last_used_asset": "EURUSD_otc",
+    "last_used_amount": 1.0
+  }
+}

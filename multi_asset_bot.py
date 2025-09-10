@@ -166,11 +166,30 @@ class MultiAssetTradingBot:
         """Initialize the API connection and check payout"""
         try:
             self.api = PocketOptionAsync(self.ssid)
-            await asyncio.sleep(3)  # Wait for connection
             
-            # Check payout for this asset
-            payout_data = await self.api.payout(self.asset)
-            self.payout = float(payout_data) if payout_data else 0.0
+            # Wait longer for API to fully initialize
+            print(f"[P{self.process_id}] {self.asset}: Connecting to API...")
+            await asyncio.sleep(5)
+            
+            # Wait for assets to be initialized
+            max_retries = 10
+            for attempt in range(max_retries):
+                try:
+                    # Test connection by getting payout
+                    payout_data = await self.api.payout(self.asset)
+                    if payout_data is not None:
+                        self.payout = float(payout_data)
+                        break
+                except Exception as e:
+                    if "not initialized" in str(e).lower():
+                        print(f"[P{self.process_id}] {self.asset}: Waiting for assets to initialize... ({attempt+1}/{max_retries})")
+                        await asyncio.sleep(2)
+                        continue
+                    else:
+                        raise e
+            else:
+                print(f"[P{self.process_id}] {self.asset}: Failed to initialize after {max_retries} attempts")
+                return False
             
             print(f"[P{self.process_id}] {self.asset}: Payout {self.payout:.1f}%")
             
@@ -452,8 +471,15 @@ def worker_process(ssid: str, asset: str, amount: float, process_id: int):
         signal.signal(signal.SIGTERM, signal_handler)
         signal.signal(signal.SIGINT, signal_handler)
         
-        # Run the async function
-        asyncio.run(run_single_asset(ssid, asset, amount, process_id))
+        # Create new event loop for this process
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            # Run the async function in the new loop
+            loop.run_until_complete(run_single_asset(ssid, asset, amount, process_id))
+        finally:
+            loop.close()
         
     except KeyboardInterrupt:
         print(f"[P{process_id}] {asset}: Interrupted")
@@ -475,9 +501,9 @@ async def main():
         amount = 1.0
     
     try:
-        max_processes = int(input('Max concurrent processes (default: 10): ') or 10)
+        max_processes = int(input('Max concurrent processes (default: 5): ') or 5)
     except ValueError:
-        max_processes = 10
+        max_processes = 5
     
     # Load assets from file
     assets = load_assets_from_file('assets-otc.tested.txt')
@@ -510,8 +536,8 @@ async def main():
             processes.append(p)
             active_assets.append(asset)
             
-            # Small delay to avoid overwhelming the API
-            await asyncio.sleep(0.5)
+            # Longer delay to avoid overwhelming the API
+            await asyncio.sleep(2.0)
         
         print(f"\n✅ Started {len(processes)} processes for assets with >90% payout")
         print("🎯 Active assets:", ", ".join(active_assets[:10]) + ("..." if len(active_assets) > 10 else ""))
